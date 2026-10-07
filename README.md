@@ -23,7 +23,7 @@ Not built (out of scope per the challenge): signup, password reset, user managem
 - Frontend: React 19 + Vite (plain CSS)
 - Backend: Node.js 22 + Express 5
 - Database: MongoDB 8 via Mongoose. A replica set is required for transactions (local single-node replica set, or MongoDB Atlas).
-- AI: OpenRouter. Primary model `nvidia/nemotron-3-super-120b-a12b:free`, with fallback `google/gemma-4-31b-it:free`. Temperature 0, JSON output mode.
+- AI: OpenRouter. Primary model `nvidia/nemotron-3-super-120b-a12b:free`, with fallbacks `dots-studio/dots-3-note-preview:free` and `apodex/apodex-1.1-mini:free` (60 s timeout per model). Temperature 0, JSON output mode.
 - Auth/session: bcrypt password check, then a signed JWT in an **httpOnly cookie** that contains only the user id. The user and role are re-loaded from the DB on every request, so the server never trusts a role or user id sent by the client.
 
 ## Links
@@ -82,7 +82,8 @@ Single-process alternative: `cd client && npm run build`, then `cd ../server && 
 | `SESSION_SECRET` | Signs the session JWT cookie | server/.env |
 | `OPENROUTER_API_KEY` | AI provider credential | server/.env (backend only) |
 | `OPENROUTER_MODEL` | Primary model id | server/.env |
-| `OPENROUTER_FALLBACK_MODEL` | Backup model if the primary fails or is rate-limited | server/.env |
+| `OPENROUTER_FALLBACK_MODEL` | Comma-separated backup models, tried in order | server/.env |
+| `OPENROUTER_TIMEOUT_MS` | Per-model timeout before trying the next one (default 60000) | server/.env |
 | `PORT` | API port (default 5000) | server/.env |
 
 `server/.env.example` contains placeholders. The real `.env` is git-ignored. No secrets reach the browser.

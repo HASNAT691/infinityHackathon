@@ -8,6 +8,9 @@ Convert a meeting transcript into projects and tasks as JSON.
 Rules:
 1. Use ONLY people from the DIRECTORY. Refer to them by their "id". Never invent people.
    People mentioned who are not in the DIRECTORY (e.g. client contacts) must never be assigned.
+   Match a speaker to a DIRECTORY person by first name or full name only. A match on a surname
+   alone (e.g. "Noor" vs "Sara Noor") is NOT a match: treat that person as unresolved.
+   Issues must be plain strings.
 2. managerId must be a user with role MANAGER. assigneeId must be a user with role AGENT.
 3. Follow FINAL decisions. When something is corrected later in the meeting (new date, new
    estimate, new owner), use the latest agreed value. A final recap, if present, is authoritative.
@@ -29,9 +32,13 @@ Return ONLY JSON (no markdown) in exactly this shape:
   "issues": []
 }`;
 
+// Free models queue under load; give up on a slow model and move to the next one.
+const TIMEOUT_MS = Number(process.env.OPENROUTER_TIMEOUT_MS) || 60000;
+
 async function callModel(model, transcript, directory) {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model,
@@ -57,9 +64,10 @@ function parseJSON(text) {
   return JSON.parse(cleaned.slice(start, end + 1));
 }
 
-// Tries the primary model, then the fallback (free models get rate-limited).
+// Tries the primary model, then each fallback in order (comma-separated list in the env).
 export async function extractPlan(transcript, directory) {
-  const models = [process.env.OPENROUTER_MODEL, process.env.OPENROUTER_FALLBACK_MODEL].filter(Boolean);
+  const models = [process.env.OPENROUTER_MODEL, ...(process.env.OPENROUTER_FALLBACK_MODEL || '').split(',')]
+    .map(m => m?.trim()).filter(Boolean);
   let lastErr;
   for (const model of models) {
     try {
